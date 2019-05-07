@@ -1,0 +1,23 @@
+
+provider "aws" {
+  region     = "us-east-1"
+  access_key = "AKIAIBGWG3MUZTGDCNXAven"
+  secret_key = "ksj0PruyJ3soGGOeGUeOdTrTOu2qxL18I9pcBI7Mkat"
+}
+resource "aws_vpc" "main" {
+  cidr_block       = "120.51.0.0/16"
+  instance_tenancy = "default"
+
+  tags = {
+    Name = "main"
+	Locaction = "Hyd"
+  }
+}
+resource "aws_subnet" "main" {
+  vpc_id     = "${aws_vpc.main.id}"
+  cidr_block = "120.51.1.0/24"
+
+  tags = {
+    Name = "subnet"
+  }
+}
