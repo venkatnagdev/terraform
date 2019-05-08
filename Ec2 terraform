@@ -1,0 +1,29 @@
+
+provider "aws" {
+  region     = "us-east-1"
+  access_key = "AKIAIBGWG3MUZTGDCNXA"
+  secret_key = "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"
+}
+resource "aws_key_pair" "pepptytest1" {
+  key_name   = "pepptytest1"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC6ssW9JdhKSjiK9m+Q8uq/mr9BYftqoUPt+BTec0nP4prEm7uBabYpn5xiU5MwhIiu23YH/YV4VPdRMrcL4xgrv/MwZKePAkPk0dS9xU+phY4v7xZvEA4vghZFaKto3MeFnOzloDcvCNfN5UwvKTZ7tEuykqK4kGUGyHvIOIhV1EUcBCXQ/Gcc2abNlr5gO7a6Xz2TZmmJEiFlRUZ+A93t5Gdu0O/IK7tFs9hszrM7ehdo1Bs37pks6bULMT5aw6nA2lh6AZckhSKlym3++/8VyPKceiPIBg6xcBC6np+4lvQjy8ABqKk/HE9vmk3na7SdLJYrHdlHmhD/D7b4vDvX mypc2@DESKTOP-CI2BV2P"
+}
+resource "aws_instance" "web" {
+  ami = "ami-0a313d6098716f372"
+  instance_type = "t1.micro"
+  key_name  = "${aws_key_pair.pepptytest1.key_name}"
+  tags {
+    Name = "HelloWorld"
+  }
+}
+
+
+
+
+
+
+-------------------------------------------------------------------------------------------
+
+how to key pair generater
+ssh-keygen -f peppty1
+cat peppty.pub
