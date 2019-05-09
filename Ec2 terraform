@@ -27,3 +27,9 @@ resource "aws_instance" "web" {
 how to key pair generater
 ssh-keygen -f peppty1
 cat peppty.pub
+
+
+ll $HOME/.ssh
+   50  ssh-keygen -t RSA -C three.peppty@gmail.com
+   51  ll $HOME/.ssh
+   52  less $HOME/.ssh/id_rsa.pub
