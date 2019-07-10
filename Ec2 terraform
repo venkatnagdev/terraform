@@ -33,3 +33,271 @@ ll $HOME/.ssh
    50  ssh-keygen -t RSA -C three.peppty@gmail.com
    51  ll $HOME/.ssh
    52  less $HOME/.ssh/id_rsa.pub
+
+
+1)aws  ,ec2,keypair,vpc,subnet, internet_gateway, route_table
+  provider "aws"{
+  region = "us-east-1"
+  access_key = "AKIASGURCE3BYWVT557L"
+  secret_key ="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"
+  }
+ resource "aws_instance" "role-test" {
+  ami = "ami-024a64a6685d05041"
+  instance_type = "t2.micro"
+  key_name = "deployer-key"
+}
+resource "aws_key_pair" "deployer" {
+  key_name   = "deployer-key"
+  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDAoJqhCcZ0XNMo2UGMFP6brkR4yDy/5iNkKwLf1rqAuAgdlHEN5uSbFXbHgKsk+ZuBRi6ncDcVsR9jIyMQiANhzYXNDosRHamneNAWfrIrNSQi1hhSKwB96eMbhBsoa6kt7C7jDfBgbvKfXa0iFjGnYVI2TogGNoN/THK7bw4xUyexSgPGmkw5Sg93/A4LNgMHLq2/MGvsXeuzM0dBmzU5UKMIhptctYkRyMp8hoGM9QvpYLKwOzORSeouyNFRWbz+wWVlFtfhV2k3VNhYFjjZD+hxXDt+YfVeLmi4IXYG+vcntX9f201+FW1Gk22XNI/LZaQqXF1R2y3QBamMYDx3 root@ip-172-31-30-152"
+}
+resource "aws_vpc" "main" {
+  cidr_block       = "120.51.0.0/16"
+  instance_tenancy = "default"
+ tags = {
+    Name = "main"
+        Locaction = "Hyd"
+  }}
+resource "aws_subnet" "main" {
+  vpc_id     = "${aws_vpc.main.id}"
+  cidr_block = "120.51.1.0/24"
+tags = {
+    Name = "subnet"
+  }
+}
+resource "aws_internet_gateway" "main" {
+  vpc_id = "${aws_vpc.main.id}"
+ tags = {
+    Name = "main"
+  }
+}
+ resource "aws_route_table" "r" {
+  vpc_id = "${aws_vpc.main.id}"
+ route {
+    cidr_block = "10.0.1.0/24"
+    gateway_id = "${aws_internet_gateway.main.id}"
+subnet_id = "${aws_subnet.main_id}"
+}
+  tags = {
+    Name = "main"
+  }
+}
+
+2)Elb and SecurityGroup ,ec2
+provider "aws"{
+  region = "us-east-1"
+  access_key = "AKIASGURCE3BYWVT557L"
+  secret_key ="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"
+  }
+resource "aws_security_group" "rvg_test" {
+  name = "rvg_test"
+  description = "default VPC security group"
+ # TCP access
+  ingress {
+    from_port = 0
+    to_port = 65535
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+# HTTP access from anywhere
+  ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+resource "aws_instance" "inbox-test" {
+  ami = "ami-024a64a6685d05041"
+  instance_type = "t2.micro"
+  key_name = "pepptytest"
+  }
+resource "aws_elb" "inbox-test" {
+  name = "rvg-inbox-test"
+# The same availability zone as our instance
+  availability_zones = ["us-east-1c", "us-east-1b", "us-east-1a", "us-east-1e"]
+security_groups = ["${aws_security_group.rvg_test.id}"]
+listener {
+    instance_port = 4000
+    instance_protocol = "http"
+    lb_port = 80
+    lb_protocol = "http"
+  }
+  listener {
+    instance_port = 4000
+    instance_protocol = "http"
+    lb_port = 443
+    lb_protocol = "https"
+    ssl_certificate_id = "arn:aws:iam::231961042942:server-certificate/cloudfront/wildcard-bounceexchange-com/wildcard-bounceexchange-com"
+  }
+  health_check {
+    healthy_threshold = 2
+    unhealthy_threshold = 2
+    target = "HTTP:4000/ping"
+    interval = 10
+    timeout = 2
+  }
+ # The instance is registered automatically
+  #instances = ["${aws_instance.inbox-test.*.id}"]
+  #provisioner "local-exec" {
+   #   command = "cd .. && ansible-playbook --inventory-file=/etc/ansible/ec2.py -l key_rvg-inbox-test -e 'aws_access_key=${var.access_key} aws_secret_key=${var.secret_key}' provisioning/playbook.yml -vvvv"
+  #}
+}
+resource "aws_eip" "ip" {
+  instance = "${aws_instance.personal.id}"
+}
+
+
+
+
+
+main.tf
+provider "aws"{
+      region = "us-east-1"
+      access_key = "${var.aws_access_key}"
+      secret_key ="${var.aws_secret_key}"
+}
+resource "aws_vpc" "default" {
+     cidr_block       = "${var.vpc_cider}"
+     enable_dns_hostnames = true
+tags = {
+       Name = "${var.vpc_name}"
+  }}
+resource "aws_internet_gateway" "default" {
+     vpc_id = "${aws_vpc.default.id}"
+tags = {
+      Name = "main"
+  }
+}
+resource "aws_subnet" "subnet1-public" {
+     vpc_id     = "${aws_vpc.default.id}"
+     cidr_block = "${var.public_subnet1_cidr"
+     availability_zone = "us-east-1a"
+tags = {
+    Name = "${var.public_subnet1_name}"
+  }
+}
+resource "aws_subnet" "subnet2-public" {
+       vpc_id     = "${aws_vpc.default.id}"
+       cidr_block = "${var.public_subnet2_cidr"
+       availability_zone = "us-east-1b"
+tags = {
+    Name = "${var.public_subnet2_name}"
+  }
+}
+resource "aws_subnet" "subnet3-public" {
+      vpc_id     = "${aws_vpc.default.id}"
+      cidr_block = "${var.public_subnet3_cidr"
+      availability_zone = "us-east-1c"
+tags = {
+    Name = "${var.public_subnet3_name}"
+  }
+}
+ resource "aws_route_table" "terraform-public" {
+      vpc_id = "${aws_vpc.dafault.id}"
+ route {
+      cidr_block = "0.0.0.0/0"
+      gateway_id = "${aws_internet_gateway.default.id}"
+
+}
+  tags = {
+    Name = "${var.main_Routing_Table}"
+
+  }
+}
+ resource "aws_route_table_association" "terraform-public" {
+      subnet_id = "${aws_subnet.subnet1_public.id}"
+      route_table_id = "${aws_route_table.terraform-public.id}"
+}
+
+resource "aws_security_group" "allow_all" {
+     name   = "allow_all"
+    description = "Allow all inbound traffic"
+vpc_id = "${aws_vpc.default.id}"
+
+  ingress {
+        from_port = 0
+        to_port   = 0
+        protocol  = "-1"
+        cidr  blocks = {"0.0.0.0/0"}
+    egress {
+         from_port = 0
+        to_port   = 0
+        protocol  = "-1"
+        cidr  blocks = {"0.0.0.0/0"}
+}
+}
+resource "aws_instance"  "web-2" {
+        ami                = "${lookup(var.amis, var.aws_region)}"
+        availability_zone = "us-east-1a"
+        instance_type     = "t2.micro"
+        key_name          = "${var.key_name}"
+        subnet_id         = "{"${aws_subnet.subnet1_public.id}"}
+        vpc_security_group_ids =  ["${aws_security_group.allow_all.id}"}
+        associate_public_ip_address = true
+tag {
+    name  = "server_1"
+    Env   = "prod"
+    owner = "sree"
+}
+}
+
+resource "aws_instance"  "web_2"
+    ami         =  "${lookup(var.amis, var.aws_region)}"
+    availability_zone = "us-east-1a"
+    instance_type   = "t2.micro"
+}
+
+
+
+
+Variable.tf
+variable "aws_access_key" {}
+variable "aws_secret_key" {}
+variable "aws_region"{}
+variable "amis"{
+     description =  "AMIs by region"
+     default     = {
+   us-east-1 = "ami-97785bed"
+   us-east-2 = "ami-f63b1193"
+  }
+}
+variable "private_subnet_cidr" {}
+variable "public_subnet1_cidr" {}
+variable "public_subnet2_cidr" {}
+variable "public_subnet3_cidr" {}
+variable "private_subnet_cidr" {}
+variable main_Routing_Table {}
+variable "azs" {
+   description = "run the EC2 Instance in these availability Zone"
+   type = "list"
+   default = {"is-east-1a", "us-east-lb", us-east-1c" }
+  }
+variable"enviroment" { default =  "dev" }
+variable "instance_type" {
+  type = "map"
+  default = {
+   dev = "t2.micro"
+   test = "t2.micro"
+  prod = "t2.medium"
+}
+}
+
+
+test.tf
+aws_access_key =" "
+aws_secret_key = ""
+aws_region = "us-east-1"
+vpc_cidr = "10.10.0.0/16"
+public_subnet1_cidr = "10.10.1.0/24"
+public_subnet2_cidr = "10.10.2.0/24"
+public_subnet3_cidr = "10.10.3.0/24"
+private_subnet_cidr = "10.10.20.0/24"
+vpc_name = "terraform-aws-testing"
+IGW_name =  "terraform-aws-igw"
+public_subnet1_name = "terraform_public_subnet1_testing"
+public_subnet2_name = "terraform_public_subnet2-testing"
+public-subnet3-name = "terraform-public-subnet3-testing"
+private_subnet_name = "terraform_private_subnet_testing"
+main_Routing_Table = "terraform_main_table_testing"
+key_name =  "SP-Key"
+environment = "dev'
