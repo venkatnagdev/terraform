@@ -38,8 +38,8 @@ ll $HOME/.ssh
 1)aws  ,ec2,keypair,vpc,subnet, internet_gateway, route_table
   provider "aws"{
   region = "us-east-1"
-  access_key = "AKIASGURCE3BYWVT557L"
-  secret_key ="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"
+  access_key = ""
+  secret_key =""
   }
  resource "aws_instance" "role-test" {
   ami = "ami-024a64a6685d05041"
