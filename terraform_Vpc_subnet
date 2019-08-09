@@ -32,12 +32,22 @@ tags = {
    Name = "My VPC Subnet"
   }
 }
+resource "aws_subnet" "My_VPC_Subnet1" {
+  vpc_id                  = "${aws_vpc.main.id}"
+  cidr_block              = "20.0.0.0/24"
+  map_public_ip_on_launch = "true"
+  availability_zone       = "ap-south-1a"
+tags = {
+   Name = "My VPC Subnet1"
+  }
+}
 resource "aws_internet_gateway" "My_VPC_GW" {
   vpc_id = "${aws_vpc.main.id}"
 tags {
         Name = "My VPC Internet Gateway"
     }
 }
+
 resource "aws_route_table" "My_VPC_route_table" {
     vpc_id = "${aws_vpc.main.id}"
 tags {
@@ -67,3 +77,62 @@ tags = {
         Name = "My VPC Security Group"
   }
 }
+resource "aws_elb" "bar" {
+  name               = "foobar-terraform-elb"
+  availability_zones = ["ap-south-1a","ap-south-1b"]
+
+  listener {
+    instance_port     = 8000
+    instance_protocol = "http"
+    lb_port           = 80
+    lb_protocol       = "http"
+  }
+
+  health_check {
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 3
+    target              = "HTTP:8000/"
+    interval            = 30
+  }
+
+  instances                   = ["${aws_instance.web.id}"]
+  cross_zone_load_balancing   = true
+  idle_timeout                = 400
+  connection_draining         = true
+  connection_draining_timeout = 400
+
+  tags = {
+    Name = "foobar-terraform-elb"
+  }
+}
+resource "aws_ami_from_instance" "example" {
+  name               = "terraform-example"
+  source_instance_id = "i-06cde225136dd8767"
+}
+ resource "aws_launch_configuration" "as_conf" {
+ name = "test-lc"
+ image_id       = "${aws_ami_from_instance.example.id}"
+ instance_type = "t2.micro"
+key_name =  "mumbai"
+ }
+resource "aws_placement_group" "test" {
+  name     = "test"
+  strategy = "cluster"
+}
+resource "aws_autoscaling_group" "aws_auto" {
+  name = "test-asg"
+launch_configuration = "${aws_launch_configuration.as_conf.name}"
+   max_size                  = 4
+  min_size                  = 2
+  health_check_grace_period = 300
+  health_check_type         = "ELB"
+  desired_capacity          = 4
+  force_delete              = true
+  load_balancers = ["${aws_elb.bar.name}"]
+  vpc_zone_identifier = ["${aws_subnet.My_VPC_Subnet.id}", "${aws_subnet.My_VPC_Subnet1.id}"]
+
+  placement_group           ="${aws_placement_group.test.id}"
+}
+
+
