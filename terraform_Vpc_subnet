@@ -1,4 +1,4 @@
-
+https://medium.com/@brad.simonin/create-an-aws-vpc-and-subnet-using-terraform-d3bddcbbcb6
 provider "aws" {
   region     = "us-east-1"
   access_key = ""
