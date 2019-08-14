@@ -1,7 +1,8 @@
 https://medium.com/@brad.simonin/create-an-aws-vpc-and-subnet-using-terraform-d3bddcbbcb6
 https://github.com/quickbooks2018/Terraform-Classic-Modules
+
 provider "aws" {
-  region     = "us-east-1"
+  region     = "ap-south-1"
   access_key = ""
   secret_key = ""
 }
@@ -34,11 +35,11 @@ tags = {
 }
 resource "aws_subnet" "My_VPC_Subnet1" {
   vpc_id                  = "${aws_vpc.main.id}"
-  cidr_block              = "20.0.0.0/24"
+  cidr_block              = "20.0.1.0/24"
   map_public_ip_on_launch = "true"
-  availability_zone       = "ap-south-1a"
+  availability_zone       = "ap-south-1b"
 tags = {
-   Name = "My VPC Subnet1"
+   Name = "My1 VPC Subnet"
   }
 }
 resource "aws_internet_gateway" "My_VPC_GW" {
@@ -47,7 +48,6 @@ tags {
         Name = "My VPC Internet Gateway"
     }
 }
-
 resource "aws_route_table" "My_VPC_route_table" {
     vpc_id = "${aws_vpc.main.id}"
 tags {
@@ -106,11 +106,12 @@ resource "aws_elb" "bar" {
     Name = "foobar-terraform-elb"
   }
 }
+
 resource "aws_ami_from_instance" "example" {
   name               = "terraform-example"
-  source_instance_id = "i-06cde225136dd8767"
+  source_instance_id = "i-0c6d1ebf4849d0280"
 }
- resource "aws_launch_configuration" "as_conf" {
+  resource "aws_launch_configuration" "as_conf" {
  name = "test-lc"
  image_id       = "${aws_ami_from_instance.example.id}"
  instance_type = "t2.micro"
@@ -134,5 +135,165 @@ launch_configuration = "${aws_launch_configuration.as_conf.name}"
 
   placement_group           ="${aws_placement_group.test.id}"
 }
+resource "aws_s3_bucket" "b" {
+  bucket = "gfhgfvnbbthtyh"
+  acl    = "public-read"
 
+  website {
+    index_document = "index.html"
+    error_document = "error.html"
+
+    routing_rules = <<EOF
+[{
+    "Condition": {
+        "KeyPrefixEquals": "docs/"
+    },
+    "Redirect": {
+        "ReplaceKeyPrefixWith": "documents/"
+    }
+}]
+EOF
+  }
+}
+resource "aws_ecs_cluster" "foo" {
+  name = "white-hart"
+}
+resource "aws_ecs_task_definition" "wordpress" {
+    family                = "hello_world"
+    container_definitions = <<DEFINITION
+[
+  {
+    "name": "wordpress",
+    "links": [
+      "mysql"
+    ],
+    "image": "wordpress",
+    "essential": true,
+    "portMappings": [
+      {
+        "containerPort": 80,
+        "hostPort": 80
+      }
+    ],
+    "memory": 500,
+    "cpu": 10
+  },
+  {
+    "environment": [
+      {
+        "name": "MYSQL_ROOT_PASSWORD",
+        "value": "password"
+      }
+    ],
+    "name": "mysql",
+    "image": "mysql",
+    "cpu": 10,
+    "memory": 500,
+    "essential": true
+  }
+]
+DEFINITION
+}
+resource "aws_iam_role" "ecs-service-role" {
+    name                = "ecs-service-role"
+    path                = "/"
+    assume_role_policy  = "${data.aws_iam_policy_document.ecs-service-policy.json}"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs-service-role-attachment" {
+    role       = "${aws_iam_role.ecs-service-role.name}"
+    policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"
+}
+
+data "aws_iam_policy_document" "ecs-service-policy" {
+    statement {
+        actions = ["sts:AssumeRole"]
+
+        principals {
+            type        = "Service"
+            identifiers = ["ecs.amazonaws.com"]
+        }
+    }
+}
+resource "aws_ecr_repository" "foo" {
+  name = "bar"
+}
+resource "aws_ecr_repository_policy" "foopolicy" {
+  repository = "${aws_ecr_repository.foo.name}"
+
+  policy = <<EOF
+{
+    "Version": "2008-10-17",
+    "Statement": [
+        {
+            "Sid": "new policy",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "ecr:GetDownloadUrlForLayer",
+                "ecr:BatchGetImage",
+                "ecr:BatchCheckLayerAvailability",
+                "ecr:PutImage",
+                "ecr:InitiateLayerUpload",
+                "ecr:UploadLayerPart",
+                "ecr:CompleteLayerUpload",
+                "ecr:DescribeRepositories",
+                "ecr:GetRepositoryPolicy",
+                "ecr:ListImages",
+                "ecr:DeleteRepository",
+                "ecr:BatchDeleteImage",
+                "ecr:SetRepositoryPolicy",
+                "ecr:DeleteRepositoryPolicy"
+            ]
+        }
+    ]
+}
+EOF
+}
+resource "aws_ecr_lifecycle_policy" "foopolicy" {
+  repository = "${aws_ecr_repository.foo.name}"
+
+  policy = <<EOF
+{
+    "rules": [
+        {
+            "rulePriority": 1,
+            "description": "Expire images older than 14 days",
+            "selection": {
+                "tagStatus": "untagged",
+                "countType": "sinceImagePushed",
+                "countUnit": "days",
+                "countNumber": 14
+            },
+            "action": {
+                "type": "expire"
+            }
+        }
+    ]
+}
+EOF
+}
+resource "aws_efs_file_system" "foo" {
+  creation_token = "my-product"
+  lifecycle_policy {
+    transition_to_ia = "AFTER_30_DAYS"
+  }
+  tags = {
+    Name = "MyProduct"
+  }
+}
+resource "aws_efs_mount_target" "alpha" {
+  file_system_id = "${aws_efs_file_system.foo.id}"
+  subnet_id      = "${aws_subnet.alpha.id}"
+}
+resource "aws_vpc" "foo" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_subnet" "alpha" {
+  vpc_id            = "${aws_vpc.foo.id}"
+  availability_zone = "us-South-1a"
+  cidr_block        = "10.0.1.0/24"
+
+}
 
